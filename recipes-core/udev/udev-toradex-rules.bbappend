@@ -1,8 +1,8 @@
 # Remove bash due to GPLv3
 RDEPENDS:${PN}:remove = "bash"
 
-# Ignore for now and fix scripts later
-INSANE_SKIP:${PN} += " file-rdeps"
-do_install:append() {
-    rm -rf ${D}/usr
-}
+# Provide bash free script
+FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
+SRC_URI:append = " \
+    file://toradex-net-rename.sh \
+"

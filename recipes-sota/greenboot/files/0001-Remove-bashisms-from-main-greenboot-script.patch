@@ -1,0 +1,102 @@
+From b463cf3fdd7996552579b4c2841d393524766d86 Mon Sep 17 00:00:00 2001
+From: Jeremias Cordoba <jeremias.cordoba@toradex.com>
+Date: Thu, 22 Jan 2026 17:43:34 -0800
+Subject: [PATCH 1/1] Remove bashisms from main greenboot script
+
+Signed-off-by: Jeremias Cordoba <jeremias.cordoba@toradex.com>
+---
+ usr/libexec/greenboot/greenboot | 32 +++++++++++++++++---------------
+ 1 file changed, 17 insertions(+), 15 deletions(-)
+
+diff --git a/usr/libexec/greenboot/greenboot b/usr/libexec/greenboot/greenboot
+index 537c6e7..5670c55 100755
+--- a/usr/libexec/greenboot/greenboot
++++ b/usr/libexec/greenboot/greenboot
+@@ -1,25 +1,27 @@
+-#!/bin/bash
++#!/bin/sh
+ set -euo pipefail
+-IFS=$'\n\t'
++#IFS="$(printf '\n\t')"
+ LC_ALL=C
+ 
+-SCRIPTS_CHECK_PATHS=("/usr/lib/greenboot/check" "/etc/greenboot/check")
+-SCRIPTS_GREEN_PATHS=("/usr/lib/greenboot/green.d" "/etc/greenboot/green.d")
+-SCRIPTS_RED_PATHS=("/usr/lib/greenboot/red.d" "/etc/greenboot/red.d")
++SCRIPTS_CHECK_PATHS="/usr/lib/greenboot/check /etc/greenboot/check"
++SCRIPTS_GREEN_PATHS="/usr/lib/greenboot/green.d /etc/greenboot/green.d"
++SCRIPTS_RED_PATHS="/usr/lib/greenboot/red.d /etc/greenboot/red.d"
+ 
+ source_configuration_file() {
+     greenboot_configuration_file=/etc/greenboot/greenboot.conf
+     if test -f "$greenboot_configuration_file"; then
+ 	# shellcheck source=/etc/greenboot/greenboot.conf
+-        source $greenboot_configuration_file
++        . $greenboot_configuration_file
++    else
++        DISABLED_HEALTHCHECKS=""
+     fi
+ }
+ 
+ source_configuration_file
+-function is_disabled {
++is_disabled () {
+     healthcheck=$1
+-    for disabled_healthcheck in "${DISABLED_HEALTHCHECKS[@]}"; do
+-      if [ "${healthcheck}" == "${disabled_healthcheck}" ]; then
++    for disabled_healthcheck in $DISABLED_HEALTHCHECKS; do
++      if [ "${healthcheck}" = "${disabled_healthcheck}" ]; then
+ 	    return 0
+ 	fi
+     done
+@@ -33,13 +35,13 @@ script_runner () {
+   local required_hc_failed=false
+   echo "$start_msg"
+   for script in $(find "$scripts_dir" -name '*.sh' | sort); do
+-    if [[ "$required_hc_failed" == true && "$mode" == "strict" ]]; then
++    if [ "$required_hc_failed" = "true" ] && [ "$mode" = "strict" ]; then
+       echo "<5>'$(basename "$script")' was skipped due to a previous failure"
+     elif is_disabled "$(basename "$script")"; then
+       echo "<5>'$(basename "$script")' was skipped, as specified in config"
+     else
+       local return_code=0
+-      systemd-cat -t "$(basename "$script")" bash "$script" || return_code=$?
++      systemd-cat -t "$(basename "$script")" sh "$script" || return_code=$?
+       if [ $return_code -ne 0 ]; then
+         local failure_msg
+         failure_msg="Script '$(basename "$script")' FAILURE (exit code '$return_code')"
+@@ -57,13 +59,13 @@ script_runner () {
+     fi
+   done
+ 
+-  [[ $required_hc_failed == false ]]
++  [ $required_hc_failed = "false" ]
+ }
+ 
+ case "$1" in
+   "check")
+     return_code=0
+-    for health_check_path in "${SCRIPTS_CHECK_PATHS[@]}"; do
++    for health_check_path in $SCRIPTS_CHECK_PATHS; do
+       script_runner "$health_check_path/required.d" "strict" "Running Required Health Check Scripts..." || {
+         return_code=1
+         break
+@@ -74,13 +76,13 @@ case "$1" in
+     ;;
+   "green")
+     echo "<5>Boot Status is GREEN - Health Check SUCCESS"
+-    for green_path in "${SCRIPTS_GREEN_PATHS[@]}"; do
++    for green_path in $SCRIPTS_GREEN_PATHS; do
+         script_runner "$green_path" "relaxed" "Running Green Scripts..."
+     done
+     ;;
+   "red")
+     echo "<0>Boot Status is RED - Health Check FAILURE!"
+-    for red_path in "${SCRIPTS_RED_PATHS[@]}"; do
++    for red_path in $SCRIPTS_RED_PATHS; do
+         script_runner "$red_path" "relaxed" "Running Red Scripts..."
+     done
+     ;;
+-- 
+2.43.0
+
